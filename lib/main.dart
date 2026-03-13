@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import 'screens/home_screen.dart';
+import 'screens/main_shell.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   runApp(const FaceClusterApp());
 }
 
@@ -18,7 +23,7 @@ class FaceClusterApp extends StatelessWidget {
         colorSchemeSeed: Colors.blue,
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const MainShell(),
       debugShowCheckedModeBanner: false,
     );
   }

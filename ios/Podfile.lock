@@ -1,0 +1,93 @@
+PODS:
+  - Flutter (1.0.0)
+  - NcnnBridge (1.0.0):
+    - Flutter
+  - photo_manager (3.9.0):
+    - Flutter
+    - FlutterMacOS
+  - sqlite3 (3.52.0):
+    - sqlite3/common (= 3.52.0)
+  - sqlite3/common (3.52.0)
+  - sqlite3/dbstatvtab (3.52.0):
+    - sqlite3/common
+  - sqlite3/fts5 (3.52.0):
+    - sqlite3/common
+  - sqlite3/math (3.52.0):
+    - sqlite3/common
+  - sqlite3/perf-threadsafe (3.52.0):
+    - sqlite3/common
+  - sqlite3/rtree (3.52.0):
+    - sqlite3/common
+  - sqlite3/session (3.52.0):
+    - sqlite3/common
+  - sqlite3_flutter_libs (0.0.1):
+    - Flutter
+    - FlutterMacOS
+    - sqlite3 (~> 3.52.0)
+    - sqlite3/dbstatvtab
+    - sqlite3/fts5
+    - sqlite3/math
+    - sqlite3/perf-threadsafe
+    - sqlite3/rtree
+    - sqlite3/session
+  - TensorFlowLiteC (2.12.0):
+    - TensorFlowLiteC/Core (= 2.12.0)
+  - TensorFlowLiteC/Core (2.12.0)
+  - TensorFlowLiteC/CoreML (2.12.0):
+    - TensorFlowLiteC/Core
+  - TensorFlowLiteC/Metal (2.12.0):
+    - TensorFlowLiteC/Core
+  - TensorFlowLiteSwift (2.12.0):
+    - TensorFlowLiteSwift/Core (= 2.12.0)
+  - TensorFlowLiteSwift/Core (2.12.0):
+    - TensorFlowLiteC (= 2.12.0)
+  - TensorFlowLiteSwift/CoreML (2.12.0):
+    - TensorFlowLiteC/CoreML (= 2.12.0)
+    - TensorFlowLiteSwift/Core (= 2.12.0)
+  - TensorFlowLiteSwift/Metal (2.12.0):
+    - TensorFlowLiteC/Metal (= 2.12.0)
+    - TensorFlowLiteSwift/Core (= 2.12.0)
+  - tflite_flutter (0.0.1):
+    - Flutter
+    - TensorFlowLiteSwift (= 2.12.0)
+    - TensorFlowLiteSwift/CoreML (= 2.12.0)
+    - TensorFlowLiteSwift/Metal (= 2.12.0)
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - NcnnBridge (from `./NcnnBridge`)
+  - photo_manager (from `.symlinks/plugins/photo_manager/darwin`)
+  - sqlite3_flutter_libs (from `.symlinks/plugins/sqlite3_flutter_libs/darwin`)
+  - tflite_flutter (from `.symlinks/plugins/tflite_flutter/ios`)
+
+SPEC REPOS:
+  trunk:
+    - sqlite3
+    - TensorFlowLiteC
+    - TensorFlowLiteSwift
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  NcnnBridge:
+    :path: "./NcnnBridge"
+  photo_manager:
+    :path: ".symlinks/plugins/photo_manager/darwin"
+  sqlite3_flutter_libs:
+    :path: ".symlinks/plugins/sqlite3_flutter_libs/darwin"
+  tflite_flutter:
+    :path: ".symlinks/plugins/tflite_flutter/ios"
+
+SPEC CHECKSUMS:
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  NcnnBridge: 5b305663fc220e87e15484121a1891fbacb9d9be
+  photo_manager: 25fd77df14f4f0ba5ef99e2c61814dde77e2bceb
+  sqlite3: a51c07cf16e023d6c48abd5e5791a61a47354921
+  sqlite3_flutter_libs: b3e120efe9a82017e5552a620f696589ed4f62ab
+  TensorFlowLiteC: 20785a69299185a379ba9852b6625f00afd7984a
+  TensorFlowLiteSwift: 3a4928286e9e35bdd3e17970f48e53c80d25e793
+  tflite_flutter: 64b192e11352fe36943ab6656e1d49207f1a5595
+
+PODFILE CHECKSUM: ee0beb2d125cbce35d8998ef002ddc16172318c5
+
+COCOAPODS: 1.16.2

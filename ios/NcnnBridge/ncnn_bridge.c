@@ -1,0 +1,1 @@
+../../android/app/src/main/cpp/ncnn_bridge.c

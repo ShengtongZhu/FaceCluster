@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 
-import 'scrfd_service.dart';
+import 'inference/face_detector.dart';
 
 class DetectedFace {
   final double bboxX;
@@ -31,10 +32,12 @@ const _templatePoints = [
 ];
 
 class FaceDetectionService {
-  final SCRFDService _scrfd = SCRFDService();
+  final FaceDetector _detector;
+
+  FaceDetectionService(this._detector);
 
   Future<void> loadDetector() async {
-    await _scrfd.loadModel();
+    await _detector.loadModel();
   }
 
   Future<List<DetectedFace>> detectFaces(String imagePath) async {
@@ -49,7 +52,7 @@ class FaceDetectionService {
     final imageWidth = fullImage.width.toDouble();
     final imageHeight = fullImage.height.toDouble();
 
-    // Run multi-scale SCRFD detection
+    // Run multi-scale detection
     final faces = _detectMultiScale(fullImage);
     print('[FaceCluster] Detected ${faces.length} faces in ${fullImage.width}x${fullImage.height} image');
 
@@ -105,24 +108,62 @@ class FaceDetectionService {
     return results;
   }
 
+  /// Extract RGB bytes from an img.Image.
+  static Uint8List imageToRgbBytes(img.Image image) {
+    final w = image.width;
+    final h = image.height;
+    final bytes = Uint8List(w * h * 3);
+    int idx = 0;
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        final pixel = image.getPixel(x, y);
+        bytes[idx++] = pixel.r.toInt();
+        bytes[idx++] = pixel.g.toInt();
+        bytes[idx++] = pixel.b.toInt();
+      }
+    }
+    return bytes;
+  }
+
+  /// Extract BGR bytes from an img.Image (for embedding models).
+  static Uint8List imageToBgrBytes(img.Image image) {
+    final w = image.width;
+    final h = image.height;
+    final bytes = Uint8List(w * h * 3);
+    int idx = 0;
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        final pixel = image.getPixel(x, y);
+        bytes[idx++] = pixel.b.toInt();
+        bytes[idx++] = pixel.g.toInt();
+        bytes[idx++] = pixel.r.toInt();
+      }
+    }
+    return bytes;
+  }
+
   /// Multi-scale detection: full image + tiled detection for large images.
-  /// Ensures faces >= ~40px in the original image can be detected.
-  List<SCRFDFace> _detectMultiScale(img.Image image) {
-    final allFaces = <SCRFDFace>[];
+  List<RawDetection> _detectMultiScale(img.Image image) {
+    final allFaces = <RawDetection>[];
 
-    // Level 0: full image detection (catches large faces)
-    final fullFaces = _scrfd.detect(image, scoreThreshold: 0.5);
-    allFaces.addAll(fullFaces);
-    print('[FaceCluster] Full-image pass: ${fullFaces.length} faces');
+    // Level 0: full image detection
+    final fullRgb = imageToRgbBytes(image);
+    final fullResult = _detector.detectSingle(
+      fullRgb, image.width, image.height,
+      scoreThreshold: 0.5,
+    );
+    allFaces.addAll(fullResult.detections);
+    print('[FaceCluster] Full-image pass: ${fullResult.detections.length} faces '
+        '(preprocess: ${fullResult.timing.preprocessMs.toStringAsFixed(1)}ms, '
+        'inference: ${fullResult.timing.inferenceMs.toStringAsFixed(1)}ms, '
+        'postprocess: ${fullResult.timing.postprocessMs.toStringAsFixed(1)}ms)');
 
-    // Level 1: tiled detection for images where scale < 0.5
-    // At scale 0.5, SCRFD can detect ~20px faces → 40px in original
+    // Level 1: tiled detection for large images
     final maxDim = max(image.width, image.height);
     if (maxDim > 1280) {
-      // Tile size chosen so each tile has scale ~0.5 at 640 input
       const tileSize = 1280;
-      const overlap = 320; // 25% overlap to catch boundary faces
-      const stride = tileSize - overlap; // 960
+      const overlap = 320;
+      const stride = tileSize - overlap;
 
       int tileCount = 0;
       int tileFaceCount = 0;
@@ -134,15 +175,18 @@ class FaceDetectionService {
           final w = x1 - x0;
           final h = y1 - y0;
 
-          // Skip tiles that are too small for meaningful detection
           if (w < 320 || h < 320) continue;
 
-          final tile = img.copyCrop(image, x: x0, y: y0, width: w, height: h);
-          final tileFaces = _scrfd.detect(tile, scoreThreshold: 0.5);
+          // Extract tile RGB bytes directly from full image bytes
+          final tileBytes = _extractTileRgb(fullRgb, image.width, x0, y0, w, h);
+          final tileResult = _detector.detectSingle(
+            tileBytes, w, h,
+            scoreThreshold: 0.5,
+          );
 
-          // Map tile-local coordinates back to original image coordinates
-          for (final f in tileFaces) {
-            allFaces.add(SCRFDFace(
+          // Map tile-local coordinates back to original image
+          for (final f in tileResult.detections) {
+            allFaces.add(RawDetection(
               x1: f.x1 + x0,
               y1: f.y1 + y0,
               x2: f.x2 + x0,
@@ -155,21 +199,32 @@ class FaceDetectionService {
           }
 
           tileCount++;
-          tileFaceCount += tileFaces.length;
+          tileFaceCount += tileResult.detections.length;
         }
       }
 
       print('[FaceCluster] Tiled detection: $tileFaceCount faces from $tileCount tiles');
     }
 
-    // Global NMS to remove duplicate detections across scales/tiles
-    final deduped = _scrfd.nms(allFaces, 0.4);
+    // Global NMS to remove duplicate detections
+    final deduped = _detector.nms(allFaces, 0.4);
     print('[FaceCluster] After NMS: ${deduped.length} unique faces');
     return deduped;
   }
 
+  /// Extract a rectangular tile from a full RGB byte array.
+  Uint8List _extractTileRgb(
+      Uint8List fullRgb, int fullWidth, int x0, int y0, int tileW, int tileH) {
+    final tile = Uint8List(tileW * tileH * 3);
+    for (int y = 0; y < tileH; y++) {
+      final srcOffset = ((y0 + y) * fullWidth + x0) * 3;
+      final dstOffset = y * tileW * 3;
+      tile.setRange(dstOffset, dstOffset + tileW * 3, fullRgb, srcOffset);
+    }
+    return tile;
+  }
+
   /// Apply least-squares similarity transform (rotation + uniform scale + translation).
-  /// Uses all available source/destination point pairs for best fit.
   img.Image? _applySimilarityTransformLeastSquares(
     img.Image src,
     List<List<double>> srcPts,
@@ -177,8 +232,6 @@ class FaceDetectionService {
   ) {
     final n = srcPts.length;
 
-    // Build normal equations for similarity transform:
-    // x' = a*x - b*y + tx, y' = b*x + a*y + ty
     double ata00 = 0, ata02 = 0, ata03 = 0;
     double ata11 = 0, ata12 = 0, ata13 = 0;
     double ata22 = 0, ata33 = 0;
@@ -203,7 +256,6 @@ class FaceDetectionService {
       atb3 += yp;
     }
 
-    // Solve 4x4 system via Gaussian elimination with partial pivoting
     final mat = [
       [ata00, 0.0, ata02, ata03, atb0],
       [0.0, ata11, ata12, ata13, atb1],
@@ -245,7 +297,6 @@ class FaceDetectionService {
 
     final a = params[0], b = params[1], tx = params[2], ty = params[3];
 
-    // Inverse similarity transform for pixel mapping
     final det = a * a + b * b;
     if (det < 1e-10) return null;
 
@@ -267,7 +318,6 @@ class FaceDetectionService {
     return result;
   }
 
-  /// Bilinear interpolation sampling from source image.
   img.Color _bilinearSample(img.Image src, double x, double y) {
     final x0 = x.floor();
     final y0 = y.floor();
@@ -301,6 +351,6 @@ class FaceDetectionService {
   }
 
   void dispose() {
-    _scrfd.dispose();
+    _detector.dispose();
   }
 }

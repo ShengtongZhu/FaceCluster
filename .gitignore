@@ -53,6 +53,15 @@ onnx2tf_output/
 # SCRFD conversion workspace (2GB+ venv, ONNX models)
 scripts/scrfd_convert/
 
+# NCNN model conversion workspace (intermediate ONNX/PNNX files)
+scripts/ncnn_convert/
+
+# iOS CocoaPods (generated, recreate with `pod install`)
+ios/Pods/
+
+# OpenSpec change artifacts (working documents, not source code)
+openspec/
+
 # Phone photos (test data, not code)
 scripts/phone_photos/
 

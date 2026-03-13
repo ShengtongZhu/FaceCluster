@@ -8,25 +8,25 @@ import 'package:path_provider/path_provider.dart';
 
 import '../models/database.dart';
 import 'face_detection_service.dart';
-import 'embedding_service.dart';
+import 'inference/face_embedder.dart';
 import 'clustering_service.dart';
 import 'perf_stats.dart';
 
 class ProcessingService {
   final AppDatabase _db;
   final FaceDetectionService _detectionService;
-  final EmbeddingService _embeddingService;
+  final FaceEmbedder _embedder;
   final ClusteringService _clusteringService;
   final PerfStats stats = PerfStats();
 
   ProcessingService({
     required AppDatabase db,
     required FaceDetectionService detectionService,
-    required EmbeddingService embeddingService,
+    required FaceEmbedder embedder,
     required ClusteringService clusteringService,
   })  : _db = db,
         _detectionService = detectionService,
-        _embeddingService = embeddingService,
+        _embedder = embedder,
         _clusteringService = clusteringService;
 
   /// Callback for progress updates: (stage, current, total)
@@ -109,11 +109,13 @@ class ProcessingService {
       final faceId = allFaceIds[i];
       final alignedFace = _alignedFaces[faceId]!;
 
-      final embedding = _embeddingService.getEmbedding(alignedFace);
-      embeddings.add(embedding);
+      // Convert aligned face to BGR bytes for the embedder
+      final bgrBytes = FaceDetectionService.imageToBgrBytes(alignedFace);
+      final result = _embedder.getEmbedding(bgrBytes, alignedFace.width, alignedFace.height);
+      embeddings.add(result.embedding);
 
       // Store embedding as bytes
-      final bytes = embedding.buffer.asUint8List();
+      final bytes = result.embedding.buffer.asUint8List();
       await _db.updateFaceEmbedding(faceId, Uint8List.fromList(bytes));
 
       // Free aligned face image from memory
