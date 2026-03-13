@@ -49,3 +49,15 @@ scripts/.venv/
 
 # onnx2tf conversion output
 onnx2tf_output/
+
+# SCRFD conversion workspace (2GB+ venv, ONNX models)
+scripts/scrfd_convert/
+
+# Phone photos (test data, not code)
+scripts/phone_photos/
+
+# Test face images
+scripts/test_faces/
+
+# Claude Code
+.claude/

@@ -1,7 +1,10 @@
+import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 
 import '../models/database.dart';
 import 'face_detection_service.dart';
@@ -69,6 +72,30 @@ class ProcessingService {
     stats.detectionTime = stopwatch.elapsed;
     stats.totalFaces = allFaceIds.length;
 
+    // Debug: save aligned face images for visual inspection
+    try {
+      final extDir = await getExternalStorageDirectory();
+      if (extDir != null) {
+        final debugDir = Directory('${extDir.path}/debug_faces');
+        if (await debugDir.exists()) {
+          await debugDir.delete(recursive: true);
+        }
+        await debugDir.create(recursive: true);
+        for (int i = 0; i < allFaceIds.length; i++) {
+          final faceId = allFaceIds[i];
+          final aligned = _alignedFaces[faceId];
+          if (aligned != null) {
+            final pngBytes = img.encodePng(aligned);
+            await File('${debugDir.path}/face_${i.toString().padLeft(3, '0')}.png')
+                .writeAsBytes(pngBytes);
+          }
+        }
+        print('[FaceCluster] Saved ${allFaceIds.length} aligned faces to ${debugDir.path}');
+      }
+    } catch (e) {
+      print('[FaceCluster] Failed to save debug faces: $e');
+    }
+
     // Stage 2: Embedding Generation
     stopwatch
       ..reset()
@@ -104,6 +131,26 @@ class ProcessingService {
       ..start();
 
     onProgress?.call('clustering', 0, 1);
+
+    // Debug: print pairwise cosine similarity matrix for first 10 faces
+    if (embeddings.length >= 2) {
+      final n = embeddings.length < 10 ? embeddings.length : 10;
+      print('[FaceCluster] Pairwise cosine similarities (first $n faces):');
+      for (int i = 0; i < n; i++) {
+        final sims = <String>[];
+        for (int j = 0; j < n; j++) {
+          double dot = 0, nA = 0, nB = 0;
+          for (int k = 0; k < embeddings[i].length; k++) {
+            dot += embeddings[i][k] * embeddings[j][k];
+            nA += embeddings[i][k] * embeddings[i][k];
+            nB += embeddings[j][k] * embeddings[j][k];
+          }
+          final sim = (nA == 0 || nB == 0) ? 0.0 : dot / (sqrt(nA) * sqrt(nB));
+          sims.add(sim.toStringAsFixed(3));
+        }
+        print('[FaceCluster] face[$i]: ${sims.join(", ")}');
+      }
+    }
 
     final result = _clusteringService.cluster(
       embeddings: embeddings,

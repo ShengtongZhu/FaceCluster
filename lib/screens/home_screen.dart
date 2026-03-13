@@ -30,8 +30,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _statusMessage = '';
   int _progressCurrent = 0;
   int _progressTotal = 0;
-  double _similarityThreshold = 0.6;
-  int _minSamples = 2;
+  double _similarityThreshold = 0.4;
+  int _minSamples = 1;
   bool _modelLoaded = false;
 
   @override
@@ -46,13 +46,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadModel() async {
     try {
-      print('[FaceCluster] Loading embedding model...');
-      await _embeddingService.loadModel();
-      print('[FaceCluster] Model loaded successfully');
+      print('[FaceCluster] Loading models...');
+      await Future.wait([
+        _detectionService.loadDetector(),
+        _embeddingService.loadModel(),
+      ]);
+      print('[FaceCluster] All models loaded successfully');
       setState(() => _modelLoaded = true);
     } catch (e, st) {
-      print('[FaceCluster] Failed to load model: $e\n$st');
-      setState(() => _statusMessage = 'Failed to load model: $e');
+      print('[FaceCluster] Failed to load models: $e\n$st');
+      setState(() => _statusMessage = 'Failed to load models: $e');
     }
   }
 
